@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Your generated Sudoku puzzle.">
+  <title>Your Puzzle | Sudoku Generator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="result-shell">
+    <section class="result-card" aria-labelledby="page-title">
+      <button
+        class="back-link back-button result-back-button"
+        type="button"
+        data-back-button
+        data-fallback="difficulty.html"
+        aria-label="Go back to the previous page"
+      >
+        <span aria-hidden="true">←</span> Back
+      </button>
+
+      <header class="result-header">
+        <div>
+          <p class="eyebrow">PUZZLE READY</p>
+          <h1 id="page-title">Your <span>Sudoku</span></h1>
+        </div>
+
+        <dl class="puzzle-meta" aria-label="Puzzle information">
+          <div>
+            <dt>Difficulty</dt>
+            <dd id="difficulty-label">Medium</dd>
+          </div>
+          <div>
+            <dt>Generated in</dt>
+            <dd id="response-time">—</dd>
+          </div>
+          <div>
+            <dt>Time</dt>
+            <dd id="game-timer" aria-label="Elapsed game time">00:00</dd>
+          </div>
+        </dl>
+      </header>
+
+      <div class="game-area">
+        <div class="board-panel">
+          <div
+            id="sudoku-grid"
+            class="sudoku-grid"
+            role="grid"
+            aria-label="Generated 9 by 9 Sudoku puzzle"
+            aria-busy="true"
+          ></div>
+
+          <div class="number-pad" role="group" aria-label="Sudoku number keypad">
+            <button class="number-key" type="button" data-number="1" aria-label="Enter number 1" disabled>1</button>
+            <button class="number-key" type="button" data-number="2" aria-label="Enter number 2" disabled>2</button>
+            <button class="number-key" type="button" data-number="3" aria-label="Enter number 3" disabled>3</button>
+            <button class="number-key" type="button" data-number="4" aria-label="Enter number 4" disabled>4</button>
+            <button class="number-key" type="button" data-number="5" aria-label="Enter number 5" disabled>5</button>
+            <button class="number-key" type="button" data-number="6" aria-label="Enter number 6" disabled>6</button>
+            <button class="number-key" type="button" data-number="7" aria-label="Enter number 7" disabled>7</button>
+            <button class="number-key" type="button" data-number="8" aria-label="Enter number 8" disabled>8</button>
+            <button class="number-key" type="button" data-number="9" aria-label="Enter number 9" disabled>9</button>
+            <button id="erase-button" class="number-key erase-key" type="button" aria-label="Erase selected cell" disabled>Erase</button>
+          </div>
+
+          <p id="grid-message" class="grid-message" aria-live="polite">
+            Creating your puzzle…
+          </p>
+        </div>
+
+        <aside class="action-panel" aria-label="Puzzle actions">
+          <div class="action-copy">
+            <span class="action-number">01</span>
+            <h2>Play your way</h2>
+            <p>Select a cell, use the keypad, and check your progress whenever you like.</p>
+          </div>
+
+          <div id="completion-panel" class="completion-panel" role="status" aria-live="polite" hidden>
+            <strong>Congratulations!</strong>
+            <span id="completion-details"></span>
+          </div>
+
+          <p id="hints-remaining" class="hints-remaining" aria-live="polite">
+            3 of 3 hints remaining
+          </p>
+
+          <button id="check-button" class="button button-secondary" type="button" disabled>
+            Check Progress
+          </button>
+          <button id="hint-button" class="button button-secondary" type="button" aria-label="Use a hint" disabled>
+            Hint
+          </button>
+          <button id="reset-button" class="button button-secondary" type="button" disabled>
+            Reset Puzzle
+          </button>
+          <button id="solution-button" class="button button-primary" type="button" disabled>
+            Show Solution
+          </button>
+          <button id="generate-button" class="button button-secondary" type="button" disabled>
+            Generate Again
+          </button>
+          <a class="button button-ghost" href="index.html">Back to Home</a>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

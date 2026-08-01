@@ -1,0 +1,5 @@
+# Keep text files portable when commits are created on Windows.
+* text=auto
+mvnw text eol=lf
+*.sh text eol=lf
+mvnw.cmd text eol=crlf

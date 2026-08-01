@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Choose a difficulty for your Sudoku puzzle.">
+  <title>Choose Difficulty | Sudoku Generator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="page-shell">
+    <section class="content-card difficulty-card" aria-labelledby="page-title">
+      <button
+        class="back-link back-button"
+        type="button"
+        data-back-button
+        data-fallback="index.html"
+        aria-label="Go back to the previous page"
+      >
+        <span aria-hidden="true">←</span> Back
+      </button>
+
+      <div class="section-heading">
+        <p class="eyebrow">STEP 1 OF 1</p>
+        <h1 id="page-title">Choose your<br><span>difficulty</span></h1>
+        <p>How much of a challenge are you looking for?</p>
+      </div>
+
+      <div class="difficulty-options">
+        <a class="difficulty-option easy" href="result.html?difficulty=Easy">
+          <span class="level-icon" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </span>
+          <span class="level-text">
+            <strong>Easy</strong>
+            <small>A relaxed warm-up</small>
+          </span>
+          <span class="option-arrow" aria-hidden="true">→</span>
+        </a>
+
+        <a class="difficulty-option medium" href="result.html?difficulty=Medium">
+          <span class="level-icon" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </span>
+          <span class="level-text">
+            <strong>Medium</strong>
+            <small>A balanced challenge</small>
+          </span>
+          <span class="option-arrow" aria-hidden="true">→</span>
+        </a>
+
+        <a class="difficulty-option hard" href="result.html?difficulty=Hard">
+          <span class="level-icon" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </span>
+          <span class="level-text">
+            <strong>Hard</strong>
+            <small>Put your skills to the test</small>
+          </span>
+          <span class="option-arrow" aria-hidden="true">→</span>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+# Maven build output and release files
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+
+# IDE metadata
+.idea/
+.vscode/
+.settings/
+.classpath
+.project
+*.iml
+
+# Logs and JVM crash reports
+*.log
+*.log.*
+logs/
+hs_err_pid*
+replay_pid*
+
+# Temporary files and caches
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+tmp/
+temp/
+
+# Local environment and common secret/key files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Operating-system files
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
