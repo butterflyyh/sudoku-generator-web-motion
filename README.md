@@ -140,15 +140,3 @@ java -jar target/sudoku-generator-0.0.1-SNAPSHOT.jar
 
 示例地址：<http://localhost:8080/api/sudoku/generate?difficulty=Easy>
 
-## Railway 部署
-
-Railway 的 Railpack 能通过根目录的 `pom.xml` 自动识别 Java/Maven 项目，当前 Java 构建环境默认使用 JDK 21，因此本项目不需要 Dockerfile、`railway.json` 或自定义构建命令。应用通过 `server.port=${PORT:8080}` 读取 Railway 自动提供的 `PORT`，并监听所有网络接口。
-
-1. 将代码提交到自己的 GitHub 仓库。不要提交 `.env`、私钥、日志或 `target`；这些内容已经加入 `.gitignore`。
-2. 在 Railway 新建项目，选择 **Deploy from GitHub repo**，授权并选择该仓库。
-3. 等待 Railway 自动识别 Java、构建 Maven 项目并启动应用。
-4. 在服务的 **Settings → Networking** 中选择 **Generate Domain**，获得公开网址。
-5. 可在服务设置中将健康检查路径设为 `/api/health`。
-6. 部署后访问生成的域名，并检查 `/api/health` 和 `/api/sudoku/generate?difficulty=Easy`。
-
-只有自动识别失败时，才需要在 Railway 服务设置中手动填写构建或启动命令。相关官方说明：[Spring Boot 部署指南](https://docs.railway.com/guides/spring-boot)、[Railpack Java 识别与版本](https://railpack.com/languages/java/)、[Railpack 自动构建](https://docs.railway.com/builds/railpack)、[公网与 PORT](https://docs.railway.com/public-networking)。
