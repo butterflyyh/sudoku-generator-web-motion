@@ -251,6 +251,165 @@ function goBackOrFallback(browserWindow, fallback) {
   return "fallback";
 }
 
+function prefersReducedMotion() {
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function waitForMotion(milliseconds) {
+  const duration = prefersReducedMotion() ? 0 : milliseconds;
+  return new Promise((resolve) => window.setTimeout(resolve, duration));
+}
+
+function initializeMotionExperience() {
+  const body = document.body;
+  const root = document.documentElement;
+  const reducedMotion = prefersReducedMotion();
+  const limitedHardware = (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4)
+    || (navigator.deviceMemory && navigator.deviceMemory <= 4);
+
+  root.classList.toggle("motion-lite", Boolean(limitedHardware));
+  root.classList.toggle("view-transitions-supported", Boolean(document.startViewTransition));
+
+  document.querySelectorAll("[data-motion-board]").forEach((board) => {
+    if (board.childElementCount > 0) {
+      return;
+    }
+    const values = (board.dataset.board || "").split("").map(Number);
+    if (values.length !== 81 || values.some((value) => !Number.isInteger(value))) {
+      return;
+    }
+    let numberOrder = 0;
+    values.forEach((value) => {
+      const cell = document.createElement("span");
+      cell.className = "motion-board-cell";
+      if (value !== 0) {
+        cell.classList.add("has-value");
+        cell.textContent = String(value);
+        cell.style.setProperty("--board-order", String(numberOrder));
+        numberOrder += 1;
+      }
+      board.appendChild(cell);
+    });
+  });
+
+  const revealElements = [...document.querySelectorAll("[data-reveal]")];
+  revealElements.forEach((element) => {
+    element.style.setProperty("--reveal-order", element.dataset.revealOrder || "0");
+  });
+
+  if (reducedMotion || !("IntersectionObserver" in window)) {
+    revealElements.forEach((element) => element.classList.add("is-visible"));
+  } else {
+    const revealObserver = new IntersectionObserver((entries, observer) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { rootMargin: "0px 0px -10%", threshold: 0.12 });
+
+    revealElements.forEach((element) => {
+      const bounds = element.getBoundingClientRect();
+      if (bounds.top < window.innerHeight * 0.92 && bounds.bottom > 0) {
+        element.classList.add("is-visible");
+      } else {
+        revealObserver.observe(element);
+      }
+    });
+  }
+
+  const siteHeader = document.querySelector("[data-site-header]");
+  if (siteHeader) {
+    let scrollFrame = null;
+    const updateHeader = () => {
+      siteHeader.classList.toggle("is-scrolled", window.scrollY > 24);
+      scrollFrame = null;
+    };
+    window.addEventListener("scroll", () => {
+      if (scrollFrame === null) {
+        scrollFrame = window.requestAnimationFrame(updateHeader);
+      }
+    }, { passive: true });
+    updateHeader();
+  }
+
+  const menuButton = document.querySelector("[data-menu-button]");
+  const navLinks = document.querySelector("[data-nav-links]");
+  if (menuButton && navLinks) {
+    const closeMenu = () => {
+      menuButton.setAttribute("aria-expanded", "false");
+      menuButton.setAttribute("aria-label", "Open navigation menu");
+      navLinks.classList.remove("is-open");
+    };
+    menuButton.addEventListener("click", () => {
+      const open = menuButton.getAttribute("aria-expanded") !== "true";
+      menuButton.setAttribute("aria-expanded", String(open));
+      menuButton.setAttribute("aria-label", open ? "Close navigation menu" : "Open navigation menu");
+      navLinks.classList.toggle("is-open", open);
+    });
+    navLinks.querySelectorAll("a").forEach((link) => link.addEventListener("click", closeMenu));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeMenu();
+        menuButton.focus();
+      }
+    });
+    document.addEventListener("click", (event) => {
+      if (!navLinks.contains(event.target) && !menuButton.contains(event.target)) {
+        closeMenu();
+      }
+    });
+  }
+
+  const transitionTo = (destination, trigger) => {
+    if (body.classList.contains("page-leaving")) {
+      return;
+    }
+    trigger?.classList.add("is-pressed");
+    trigger?.setAttribute("aria-busy", "true");
+    body.classList.add("page-leaving");
+    window.setTimeout(() => window.location.assign(destination), reducedMotion ? 0 : 180);
+  };
+
+  document.querySelectorAll("a[data-page-link]").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      if (event.defaultPrevented
+          || event.button !== 0
+          || event.ctrlKey
+          || event.metaKey
+          || event.shiftKey
+          || event.altKey
+          || link.target === "_blank") {
+        return;
+      }
+      const destination = new URL(link.href, window.location.href);
+      if (destination.origin !== window.location.origin) {
+        return;
+      }
+      event.preventDefault();
+      transitionTo(destination.href, link);
+    });
+  });
+
+  window.addEventListener("pageshow", () => {
+    body.classList.remove("page-leaving");
+    document.querySelectorAll("[aria-busy='true'].is-pressed").forEach((element) => {
+      element.classList.remove("is-pressed");
+      element.removeAttribute("aria-busy");
+    });
+  });
+
+  window.requestAnimationFrame(() => {
+    body.classList.remove("motion-pending");
+    body.classList.add("motion-ready");
+  });
+
+  return { transitionTo, reducedMotion };
+}
+
 const SudokuGameApi = {
   SudokuGame,
   flattenBoard,
@@ -267,9 +426,17 @@ if (typeof globalThis !== "undefined") {
 }
 
 if (typeof document !== "undefined") {
+  const motionExperience = initializeMotionExperience();
+
   document.querySelectorAll("[data-back-button]").forEach((button) => {
     button.addEventListener("click", () => {
-      goBackOrFallback(window, button.dataset.fallback);
+      if (document.body.classList.contains("page-leaving")) {
+        return;
+      }
+      document.body.classList.add("page-leaving");
+      window.setTimeout(() => {
+        goBackOrFallback(window, button.dataset.fallback);
+      }, motionExperience.reducedMotion ? 0 : 160);
     });
   });
 
@@ -287,6 +454,11 @@ if (typeof document !== "undefined") {
     const gridMessage = document.querySelector("#grid-message");
     const completionPanel = document.querySelector("#completion-panel");
     const completionDetails = document.querySelector("#completion-details");
+    const confirmDialog = document.querySelector("#confirm-dialog");
+    const confirmTitle = document.querySelector("#confirm-title");
+    const confirmMessage = document.querySelector("#confirm-message");
+    const confirmAction = document.querySelector("#confirm-action");
+    const celebrationLayer = document.querySelector("#celebration-layer");
     const numberButtons = [...document.querySelectorAll("[data-number]")];
     const eraseButton = document.querySelector("#erase-button");
     const validDifficulties = ["Easy", "Medium", "Hard"];
@@ -299,6 +471,7 @@ if (typeof document !== "undefined") {
     let solutionVisible = false;
     let timerId = null;
     let loading = false;
+    let lastConflictIndices = new Set();
 
     difficultyLabel.textContent = difficulty;
 
@@ -335,14 +508,17 @@ if (typeof document !== "undefined") {
       return parts.join(", ");
     }
 
-    function renderGrid(focusSelected = false) {
+    function renderGrid(focusSelected = false, feedback = {}) {
       if (!game) {
         return;
       }
 
       grid.replaceChildren();
-      grid.classList.remove("loading", "error");
+      grid.classList.remove("loading", "error", "board-exit");
       const conflicts = solutionVisible ? new Set() : game.getConflictIndices();
+      const newConflicts = feedback.animateConflicts
+        ? new Set([...conflicts].filter((index) => !lastConflictIndices.has(index)))
+        : new Set();
       const firstEditable = game.puzzle.findIndex((value) => value === 0);
 
       for (let index = 0; index < 81; index += 1) {
@@ -360,6 +536,7 @@ if (typeof document !== "undefined") {
         cell.setAttribute("aria-colindex", String(column + 1));
         cell.setAttribute("aria-selected", String(game.selectedIndex === index));
         cell.setAttribute("aria-label", cellAriaLabel(index, value, conflicts));
+        cell.style.setProperty("--cell-order", String(index));
         cell.tabIndex = game.selectedIndex === index
           || (game.selectedIndex === null && index === firstEditable) ? 0 : -1;
         cell.textContent = value === 0 ? "" : String(value);
@@ -391,6 +568,24 @@ if (typeof document !== "undefined") {
         if (!solutionVisible && conflicts.has(index)) {
           cell.classList.add("conflict");
         }
+        if (feedback.boardEnter) {
+          cell.classList.add("cell-enter");
+        }
+        if (feedback.valueIndex === index && value !== 0) {
+          cell.classList.add("value-pop");
+        }
+        if (newConflicts.has(index)) {
+          cell.classList.add("conflict-shake");
+        }
+        if (feedback.progress && game.correctIndices.has(index)) {
+          cell.classList.add("progress-correct");
+        }
+        if (feedback.progress && game.incorrectIndices.has(index)) {
+          cell.classList.add("progress-incorrect");
+        }
+        if (feedback.hintIndex === index) {
+          cell.classList.add("hint-sweep");
+        }
         if (!given && solutionVisible) {
           cell.classList.add("revealed");
         }
@@ -409,6 +604,14 @@ if (typeof document !== "undefined") {
           renderGrid(true);
         });
         grid.appendChild(cell);
+      }
+
+      lastConflictIndices = conflicts;
+      if (feedback.boardEnter) {
+        grid.classList.remove("board-enter");
+        window.requestAnimationFrame(() => grid.classList.add("board-enter"));
+      } else {
+        grid.classList.remove("board-enter");
       }
 
       if (focusSelected && game.selectedIndex !== null) {
@@ -472,13 +675,56 @@ if (typeof document !== "undefined") {
       completionDetails.textContent = "";
     }
 
+    function requestConfirmation({ title, message, confirmLabel }) {
+      if (!confirmDialog || typeof confirmDialog.showModal !== "function") {
+        return Promise.resolve(window.confirm(message));
+      }
+      if (confirmDialog.open) {
+        return Promise.resolve(false);
+      }
+
+      confirmTitle.textContent = title;
+      confirmMessage.textContent = message;
+      confirmAction.textContent = confirmLabel;
+      confirmDialog.returnValue = "cancel";
+
+      return new Promise((resolve) => {
+        confirmDialog.addEventListener("close", () => {
+          resolve(confirmDialog.returnValue === "confirm");
+        }, { once: true });
+        confirmDialog.showModal();
+      });
+    }
+
+    function launchCelebration() {
+      if (!celebrationLayer || prefersReducedMotion()) {
+        return;
+      }
+      celebrationLayer.replaceChildren();
+      const colors = ["#ef6548", "#a9d7c8", "#17352f", "#f3bf56"];
+      const count = document.documentElement.classList.contains("motion-lite") ? 14 : 26;
+      for (let index = 0; index < count; index += 1) {
+        const particle = document.createElement("span");
+        particle.className = "celebration-particle";
+        particle.style.setProperty("--particle-x", `${5 + Math.random() * 90}%`);
+        particle.style.setProperty("--particle-color", colors[index % colors.length]);
+        particle.style.setProperty("--particle-drift", `${-70 + Math.random() * 140}px`);
+        particle.style.setProperty("--particle-rotation", `${180 + Math.random() * 540}deg`);
+        particle.style.setProperty("--particle-delay", `${Math.random() * 240}ms`);
+        particle.style.setProperty("--particle-duration", `${1250 + Math.random() * 450}ms`);
+        celebrationLayer.appendChild(particle);
+      }
+      window.setTimeout(() => celebrationLayer.replaceChildren(), 2100);
+    }
+
     function showCompletion() {
       stopTimer();
       completionPanel.hidden = false;
       completionDetails.textContent = `${difficultyLabel.textContent} · ${formatElapsed(game.elapsedSeconds)} · ${game.hintsUsed} hint${game.hintsUsed === 1 ? "" : "s"} used`;
       gridMessage.textContent = "Congratulations! You completed the puzzle correctly.";
-      renderGrid();
+      renderGrid(false, { progress: true });
       updateControls();
+      launchCelebration();
     }
 
     function applyValue(value) {
@@ -494,8 +740,12 @@ if (typeof document !== "undefined") {
         return;
       }
 
-      const result = game.setValue(game.selectedIndex, value);
-      renderGrid(true);
+      const targetIndex = game.selectedIndex;
+      const result = game.setValue(targetIndex, value);
+      renderGrid(true, {
+        valueIndex: value === 0 ? null : targetIndex,
+        animateConflicts: value !== 0
+      });
       if (result.completed) {
         showCompletion();
       } else {
@@ -514,7 +764,8 @@ if (typeof document !== "undefined") {
       responseTime.textContent = "—";
       updateTimerDisplay();
       hideCompletion();
-      grid.classList.remove("error");
+      lastConflictIndices = new Set();
+      grid.classList.remove("error", "board-enter", "board-exit");
       grid.classList.add("loading");
       grid.setAttribute("aria-busy", "true");
 
@@ -530,7 +781,7 @@ if (typeof document !== "undefined") {
     function showError(message) {
       stopTimer();
       loading = false;
-      grid.classList.remove("loading");
+      grid.classList.remove("loading", "board-enter", "board-exit");
       grid.classList.add("error");
       grid.setAttribute("aria-busy", "false");
 
@@ -543,7 +794,14 @@ if (typeof document !== "undefined") {
       updateControls();
     }
 
-    async function generatePuzzle() {
+    async function generatePuzzle({ animateExit = false } = {}) {
+      if (animateExit && game) {
+        loading = true;
+        grid.setAttribute("aria-busy", "true");
+        updateControls();
+        grid.classList.add("board-exit");
+        await waitForMotion(170);
+      }
       showLoading();
 
       try {
@@ -578,7 +836,7 @@ if (typeof document !== "undefined") {
         solutionButton.textContent = "Show Solution";
         grid.setAttribute("aria-busy", "false");
         hideCompletion();
-        renderGrid();
+        renderGrid(false, { boardEnter: true });
         startTimer(true);
         updateControls();
         gridMessage.textContent = `A new ${data.difficulty.toLowerCase()} puzzle is ready. Select a cell to begin.`;
@@ -598,7 +856,7 @@ if (typeof document !== "undefined") {
         return;
       }
       const progress = game.checkProgress();
-      renderGrid();
+      renderGrid(false, { progress: true });
       if (progress.completed) {
         showCompletion();
       } else if (progress.incorrect > 0) {
@@ -619,7 +877,7 @@ if (typeof document !== "undefined") {
         updateControls();
         return;
       }
-      renderGrid(true);
+      renderGrid(true, { hintIndex: hint.index });
       if (hint.completed) {
         showCompletion();
       } else {
@@ -628,10 +886,21 @@ if (typeof document !== "undefined") {
       }
     });
 
-    resetButton.addEventListener("click", () => {
-      if (!game || !window.confirm("Clear all of your entries and reset the timer? Used hints will not be restored.")) {
+    resetButton.addEventListener("click", async () => {
+      if (!game) {
         return;
       }
+      const confirmed = await requestConfirmation({
+        title: "Reset this puzzle?",
+        message: "Clear all of your entries and reset the timer? Used hints will not be restored.",
+        confirmLabel: "Reset Puzzle"
+      });
+      if (!confirmed || !game) {
+        return;
+      }
+      const entryCells = [...grid.querySelectorAll(".sudoku-cell.user-entry")];
+      entryCells.forEach((cell) => cell.classList.add("value-fade"));
+      await waitForMotion(130);
       game.resetEntries();
       solutionVisible = false;
       solutionButton.textContent = "Show Solution";
@@ -642,12 +911,17 @@ if (typeof document !== "undefined") {
       gridMessage.textContent = "Your entries were cleared. The original clues remain.";
     });
 
-    solutionButton.addEventListener("click", () => {
+    solutionButton.addEventListener("click", async () => {
       if (!game) {
         return;
       }
       if (!solutionVisible) {
-        if (!window.confirm("Show the full solution? The timer will pause, and this will not count as completing the puzzle.")) {
+        const confirmed = await requestConfirmation({
+          title: "Reveal the solution?",
+          message: "The timer will pause, and revealing the answer will not count as completing the puzzle.",
+          confirmLabel: "Show Solution"
+        });
+        if (!confirmed || !game) {
           return;
         }
         solutionVisible = true;
@@ -667,10 +941,10 @@ if (typeof document !== "undefined") {
       updateControls();
     });
 
-    generateButton.addEventListener("click", generatePuzzle);
+    generateButton.addEventListener("click", () => generatePuzzle({ animateExit: true }));
 
     document.addEventListener("keydown", (event) => {
-      if (!game || event.ctrlKey || event.metaKey || event.altKey) {
+      if (!game || confirmDialog?.open || event.ctrlKey || event.metaKey || event.altKey) {
         return;
       }
       if (/^[1-9]$/.test(event.key)) {

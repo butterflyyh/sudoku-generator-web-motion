@@ -7,9 +7,9 @@
   <title>Choose Difficulty | Sudoku Generator</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="difficulty-page motion-pending">
   <main class="page-shell">
-    <section class="content-card difficulty-card" aria-labelledby="page-title">
+    <section class="content-card difficulty-card" aria-labelledby="page-title" data-page-card>
       <button
         class="back-link back-button"
         type="button"
@@ -27,7 +27,7 @@
       </div>
 
       <div class="difficulty-options">
-        <a class="difficulty-option easy" href="result.html?difficulty=Easy">
+        <a class="difficulty-option easy" href="result.html?difficulty=Easy" data-page-link data-difficulty-order="0">
           <span class="level-icon" aria-hidden="true">
             <i></i><i></i><i></i>
           </span>
@@ -38,7 +38,7 @@
           <span class="option-arrow" aria-hidden="true">→</span>
         </a>
 
-        <a class="difficulty-option medium" href="result.html?difficulty=Medium">
+        <a class="difficulty-option medium" href="result.html?difficulty=Medium" data-page-link data-difficulty-order="1">
           <span class="level-icon" aria-hidden="true">
             <i></i><i></i><i></i>
           </span>
@@ -49,7 +49,7 @@
           <span class="option-arrow" aria-hidden="true">→</span>
         </a>
 
-        <a class="difficulty-option hard" href="result.html?difficulty=Hard">
+        <a class="difficulty-option hard" href="result.html?difficulty=Hard" data-page-link data-difficulty-order="2">
           <span class="level-icon" aria-hidden="true">
             <i></i><i></i><i></i>
           </span>

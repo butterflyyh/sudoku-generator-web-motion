@@ -52,7 +52,13 @@ class SudokuApplicationTests {
         mockMvc.perform(get("/index.html"))
             .andExpect(status().isOk())
             .andExpect(content().contentTypeCompatibleWith("text/html"))
-            .andExpect(content().string(org.hamcrest.Matchers.containsString("Sudoku Generator")));
+            .andExpect(content().string(org.hamcrest.Matchers.allOf(
+                org.hamcrest.Matchers.containsString("Sudoku Generator"),
+                org.hamcrest.Matchers.containsString("data-site-header"),
+                org.hamcrest.Matchers.containsString("id=\"generator\""),
+                org.hamcrest.Matchers.containsString("id=\"difficulty\""),
+                org.hamcrest.Matchers.containsString("id=\"features\""),
+                org.hamcrest.Matchers.containsString("id=\"play\""))));
     }
 
     @Test
@@ -73,6 +79,8 @@ class SudokuApplicationTests {
                 org.hamcrest.Matchers.containsString("id=\"hint-button\""),
                 org.hamcrest.Matchers.containsString("id=\"reset-button\""),
                 org.hamcrest.Matchers.containsString("id=\"erase-button\""),
+                org.hamcrest.Matchers.containsString("id=\"confirm-dialog\""),
+                org.hamcrest.Matchers.containsString("id=\"celebration-layer\""),
                 org.hamcrest.Matchers.containsString("Back to Home"))));
     }
 
@@ -81,12 +89,18 @@ class SudokuApplicationTests {
         mockMvc.perform(get("/styles.css"))
             .andExpect(status().isOk())
             .andExpect(content().contentTypeCompatibleWith("text/css"))
-            .andExpect(content().string(org.hamcrest.Matchers.containsString(".sudoku-grid")));
+            .andExpect(content().string(org.hamcrest.Matchers.allOf(
+                org.hamcrest.Matchers.containsString(".sudoku-grid"),
+                org.hamcrest.Matchers.containsString("prefers-reduced-motion"),
+                org.hamcrest.Matchers.containsString(".site-header"),
+                org.hamcrest.Matchers.containsString(".celebration-particle"))));
 
         mockMvc.perform(get("/script.js"))
             .andExpect(status().isOk())
-            .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                "/api/sudoku/generate")));
+            .andExpect(content().string(org.hamcrest.Matchers.allOf(
+                org.hamcrest.Matchers.containsString("/api/sudoku/generate"),
+                org.hamcrest.Matchers.containsString("IntersectionObserver"),
+                org.hamcrest.Matchers.containsString("prefers-reduced-motion"))));
     }
 
     @ParameterizedTest(name = "{0} API returns a complete, unique puzzle")

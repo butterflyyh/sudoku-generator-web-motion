@@ -41,8 +41,12 @@ async function main() {
 
     let nextId = 1;
     const pending = new Map();
+    const javascriptErrors = [];
     socket.addEventListener("message", (event) => {
       const message = JSON.parse(event.data);
+      if (message.method === "Runtime.exceptionThrown") {
+        javascriptErrors.push(message.params.exceptionDetails.text || "Uncaught JavaScript exception");
+      }
       if (message.id && pending.has(message.id)) {
         const { resolve, reject } = pending.get(message.id);
         pending.delete(message.id);
@@ -109,6 +113,8 @@ async function main() {
     assert.equal(metrics.innerWidth, 390);
     assert.ok(metrics.scrollWidth <= 390, `Mobile page has horizontal overflow: ${metrics.scrollWidth}px.`);
     assert.ok(metrics.minimumKeyHeight >= 48, `Mobile number keys are too small: ${metrics.minimumKeyHeight}px.`);
+
+    await sleep(700);
 
     await send("Emulation.setDeviceMetricsOverride", {
       width: 390,
@@ -195,10 +201,23 @@ async function main() {
     assert.equal(progressCheck.incorrect, true);
     assert.match(progressCheck.message, /incorrect/);
 
-    const solutionCheck = JSON.parse(await evaluateValue(`(() => {
-      window.confirm = () => true;
-      const ownValue = document.querySelector('[data-index="' + window.__smokeEditableIndex + '"]').textContent;
+    await evaluateValue(`(() => {
+      window.__smokeOwnValue = document.querySelector('[data-index="' + window.__smokeEditableIndex + '"]').textContent;
       document.querySelector('#solution-button').click();
+    })()`);
+    await sleep(100);
+    const dialogCheck = JSON.parse(await evaluateValue(`JSON.stringify({
+      open: document.querySelector('#confirm-dialog').open,
+      title: document.querySelector('#confirm-title').textContent,
+      opacity: Number(getComputedStyle(document.querySelector('#confirm-dialog')).opacity)
+    })`));
+    assert.equal(dialogCheck.open, true);
+    assert.match(dialogCheck.title, /Reveal the solution/);
+    assert.ok(dialogCheck.opacity > 0.5, "The confirmation dialog did not visibly enter.");
+    await evaluateValue(`document.querySelector('#confirm-action').click()`);
+    await sleep(100);
+    const solutionCheck = JSON.parse(await evaluateValue(`(() => {
+      const ownValue = window.__smokeOwnValue;
       window.__smokeSolution = [...document.querySelectorAll('.sudoku-cell')].map((cell) => cell.textContent);
       return JSON.stringify({
         ownValue,
@@ -232,8 +251,11 @@ async function main() {
     assert.match(hintCheck.hintsText, /^0 of 3/);
     assert.equal(hintCheck.hintDisabled, true);
 
+    await evaluateValue(`document.querySelector('#reset-button').click()`);
+    await sleep(100);
+    await evaluateValue(`document.querySelector('#confirm-action').click()`);
+    await sleep(250);
     const resetCheck = JSON.parse(await evaluateValue(`(() => {
-      document.querySelector('#reset-button').click();
       return JSON.stringify({
         userEntries: document.querySelectorAll('.sudoku-cell.user-entry').length,
         fixedClues: document.querySelectorAll('.sudoku-cell.fixed').length,
@@ -306,15 +328,148 @@ async function main() {
     assert.equal(keyboardCheck.erased, "");
     assert.equal(keyboardCheck.selected, keyboardCheck.index + 1);
 
+    await send("Page.reload", { ignoreCache: true });
+    let refreshedCells = 0;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      await sleep(100);
+      refreshedCells = await evaluateValue("document.querySelectorAll('.sudoku-cell').length");
+      if (refreshedCells === 81) {
+        break;
+      }
+    }
+    assert.equal(refreshedCells, 81, "Refreshing the direct result URL did not restore the puzzle.");
+
+    await sleep(700);
+    await send("Emulation.setDeviceMetricsOverride", {
+      width: 1440,
+      height: 1200,
+      deviceScaleFactor: 1,
+      mobile: false
+    });
+    await sleep(200);
+    const desktopResultScreenshot = await send("Page.captureScreenshot", {
+      format: "png",
+      fromSurface: true
+    });
+    const desktopResultScreenshotPath = path.resolve("target", "sudoku-result.png");
+    fs.writeFileSync(desktopResultScreenshotPath, Buffer.from(desktopResultScreenshot.data, "base64"));
+    await send("Emulation.setDeviceMetricsOverride", {
+      width: 390,
+      height: 1600,
+      deviceScaleFactor: 1,
+      mobile: true
+    });
+
     await send("Page.navigate", { url: `${baseUrl}/index.html` });
-    await sleep(300);
+    await sleep(500);
+    const homeCheck = JSON.parse(await evaluateValue(`JSON.stringify({
+      sections: ['home', 'generator', 'difficulty', 'features', 'play'].every((id) => Boolean(document.getElementById(id))),
+      navLinks: document.querySelectorAll('#primary-nav-links a').length,
+      menuVisible: getComputedStyle(document.querySelector('[data-menu-button]')).display !== 'none',
+      scrollWidth: document.documentElement.scrollWidth,
+      innerWidth: window.innerWidth,
+      motionReady: document.body.classList.contains('motion-ready')
+    })`));
+    assert.equal(homeCheck.sections, true, "The long-form home sections are missing.");
+    assert.equal(homeCheck.navLinks, 5);
+    assert.equal(homeCheck.menuVisible, true, "The mobile menu button is not visible.");
+    assert.ok(homeCheck.scrollWidth <= homeCheck.innerWidth, "The mobile home page overflows horizontally.");
+    assert.equal(homeCheck.motionReady, true);
+
+    const menuCheck = JSON.parse(await evaluateValue(`(() => {
+      const button = document.querySelector('[data-menu-button]');
+      button.click();
+      return JSON.stringify({
+        expanded: button.getAttribute('aria-expanded'),
+        open: document.querySelector('[data-nav-links]').classList.contains('is-open')
+      });
+    })()`));
+    assert.equal(menuCheck.expanded, "true");
+    assert.equal(menuCheck.open, true);
+
     await evaluateValue(`location.href = '${baseUrl}/difficulty.html'`);
-    await sleep(300);
+    await sleep(1000);
+    const difficultyMotionCheck = JSON.parse(await evaluateValue(`JSON.stringify({
+      options: document.querySelectorAll('.difficulty-option').length,
+      ready: document.body.classList.contains('motion-ready'),
+      visible: [...document.querySelectorAll('.difficulty-option')].every((card) => Number(getComputedStyle(card).opacity) > 0.9)
+    })`));
+    assert.equal(difficultyMotionCheck.options, 3);
+    assert.equal(difficultyMotionCheck.ready, true);
+    assert.equal(difficultyMotionCheck.visible, true);
+
     await evaluateValue("document.querySelector('[data-back-button]').click()");
-    await sleep(300);
+    await sleep(400);
     assert.equal(await evaluateValue("location.pathname"), "/index.html", "Back did not return to the actual previous page.");
 
+    await send("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-reduced-motion", value: "reduce" }]
+    });
+    await send("Page.navigate", { url: `${baseUrl}/index.html` });
+    await sleep(300);
+    const reducedMotionCheck = JSON.parse(await evaluateValue(`JSON.stringify({
+      queryMatches: matchMedia('(prefers-reduced-motion: reduce)').matches,
+      titleDuration: parseFloat(getComputedStyle(document.querySelector('.hero-title')).animationDuration),
+      revealTransform: getComputedStyle(document.querySelector('[data-reveal]')).transform,
+      revealed: [...document.querySelectorAll('[data-reveal]')].every((element) => Number(getComputedStyle(element).opacity) > 0.9)
+    })`));
+    assert.equal(reducedMotionCheck.queryMatches, true);
+    assert.ok(reducedMotionCheck.titleDuration <= 0.001, `Reduced-motion animation is too long: ${reducedMotionCheck.titleDuration}s.`);
+    assert.ok(
+      ["none", "matrix(1, 0, 0, 1, 0, 0)"].includes(reducedMotionCheck.revealTransform),
+      `Reduced-motion reveal still has a visual transform: ${reducedMotionCheck.revealTransform}`
+    );
+    assert.equal(reducedMotionCheck.revealed, true);
+
+    await send("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-reduced-motion", value: "no-preference" }]
+    });
+    await send("Emulation.setDeviceMetricsOverride", {
+      width: 1440,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: false
+    });
+    await send("Page.navigate", { url: `${baseUrl}/index.html` });
+    await sleep(500);
+    const homeHeroScreenshot = await send("Page.captureScreenshot", {
+      format: "png",
+      fromSurface: true
+    });
+    const homeHeroScreenshotPath = path.resolve("target", "sudoku-home-hero.png");
+    fs.writeFileSync(homeHeroScreenshotPath, Buffer.from(homeHeroScreenshot.data, "base64"));
+    await evaluateValue("window.scrollTo({ top: document.querySelector('#generator').offsetTop - 80, behavior: 'auto' })");
+    await sleep(700);
+    const desktopHomeCheck = JSON.parse(await evaluateValue(`JSON.stringify({
+      innerWidth: window.innerWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      scrolled: window.scrollY > 100,
+      headerScrolled: document.querySelector('[data-site-header]').classList.contains('is-scrolled'),
+      generatorVisible: document.querySelector('.generator-visual').classList.contains('is-visible'),
+      boardCells: document.querySelectorAll('.motion-board-cell').length,
+      menuHidden: getComputedStyle(document.querySelector('[data-menu-button]')).display === 'none'
+    })`));
+    assert.equal(desktopHomeCheck.innerWidth, 1440);
+    assert.ok(desktopHomeCheck.scrollWidth <= 1440, "The desktop home page overflows horizontally.");
+    assert.equal(desktopHomeCheck.scrolled, true);
+    assert.equal(desktopHomeCheck.headerScrolled, true);
+    assert.equal(desktopHomeCheck.generatorVisible, true);
+    assert.equal(desktopHomeCheck.boardCells, 81);
+    assert.equal(desktopHomeCheck.menuHidden, true);
+
+    const homeScreenshot = await send("Page.captureScreenshot", {
+      format: "png",
+      fromSurface: true
+    });
+    const homeScreenshotPath = path.resolve("target", "sudoku-home-desktop.png");
+    fs.writeFileSync(homeScreenshotPath, Buffer.from(homeScreenshot.data, "base64"));
+    assert.deepEqual(javascriptErrors, [], `Browser JavaScript errors: ${javascriptErrors.join(" | ")}`);
+
     console.log(`Mobile browser interaction smoke passed: viewport ${metrics.innerWidth}px, scroll width ${metrics.scrollWidth}px, key height ${metrics.minimumKeyHeight}px.`);
+    console.log("Home navigation, desktop scrolling, difficulty motion, refresh, reduced-motion mode, and JavaScript console passed.");
+    console.log(`Desktop result screenshot: ${desktopResultScreenshotPath}`);
+    console.log(`Desktop home hero screenshot: ${homeHeroScreenshotPath}`);
+    console.log(`Desktop home screenshot: ${homeScreenshotPath}`);
     console.log(`Mobile screenshot: ${screenshotPath}`);
     socket.close();
   } finally {

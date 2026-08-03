@@ -7,9 +7,9 @@
   <title>Your Puzzle | Sudoku Generator</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="result-page motion-pending">
   <main class="result-shell">
-    <section class="result-card" aria-labelledby="page-title">
+    <section class="result-card" aria-labelledby="page-title" data-page-card>
       <button
         class="back-link back-button result-back-button"
         type="button"
@@ -101,11 +101,25 @@
           <button id="generate-button" class="button button-secondary" type="button" disabled>
             Generate Again
           </button>
-          <a class="button button-ghost" href="index.html">Back to Home</a>
+          <a class="button button-ghost" href="index.html" data-page-link>Back to Home</a>
         </aside>
       </div>
     </section>
   </main>
+
+  <dialog id="confirm-dialog" class="motion-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+    <form method="dialog">
+      <span class="dialog-mark" aria-hidden="true">?</span>
+      <h2 id="confirm-title">Please confirm</h2>
+      <p id="confirm-message"></p>
+      <div class="dialog-actions">
+        <button class="button button-secondary" type="submit" value="cancel">Cancel</button>
+        <button id="confirm-action" class="button button-primary" type="submit" value="confirm">Continue</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="celebration-layer" class="celebration-layer" aria-hidden="true"></div>
 
   <script src="script.js"></script>
 </body>
